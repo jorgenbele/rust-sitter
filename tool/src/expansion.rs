@@ -437,6 +437,41 @@ pub fn generate_grammar(module: &ItemMod) -> Value {
         .expect("Each parser must have the root type annotated with `#[rust_sitter::language]`")
         .to_string();
 
+    // Optionally locate rules annotated with `#[rust_sitter::conflicts(...)]`.
+    let conflicts_ident = contents.iter().filter_map(|item| match item {
+        Item::Enum(ItemEnum { attrs, .. }) | Item::Struct(ItemStruct { attrs, .. }) => {
+            for attr in attrs.iter() {
+                if attr.path() != &syn::parse_quote!(rust_sitter::conflicts) {
+                    return None;
+                }
+                match &attr.meta {
+                    Meta::List(list) => {
+                        let parsed = list
+                            .parse_args_with(Punctuated::<Ident, Token![,]>::parse_terminated)
+                            .expect("conflicts must follow a list of types")
+                            .into_iter()
+                            .collect::<Vec<_>>();
+
+                        return Some(parsed);
+                    }
+                    _ => unimplemented!(),
+                };
+            }
+            None
+        }
+        _ => None,
+    });
+
+    // Extract the names
+    let conflicts_names = conflicts_ident
+        .map(|conflict_idents| {
+            conflict_idents
+                .iter()
+                .map(|ci| format!("{}", ci))
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
     // Optionally locate the rule annotated with `#[rust_sitter::word]`.
     let mut word_rule = None;
     contents.iter().for_each(|c| {
@@ -505,6 +540,7 @@ pub fn generate_grammar(module: &ItemMod) -> Value {
     json!({
         "name": grammar_name,
         "word": word_rule,
+        "conflicts": conflicts_names,
         "rules": rules_map,
         "extras": extras_list
     })

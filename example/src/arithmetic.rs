@@ -3,7 +3,10 @@ pub mod grammar {
     #[rust_sitter::language]
     #[derive(PartialEq, Eq, Debug)]
     pub enum Expression {
+        #[rust_sitter::conflicts]
         Number(#[rust_sitter::leaf(pattern = r"\d+", transform = |v| v.parse().unwrap())] i32),
+
+        #[rust_sitter::conflicts]
         #[rust_sitter::prec_left(1)]
         Sub(
             Box<Expression>,

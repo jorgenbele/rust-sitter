@@ -501,4 +501,45 @@ mod tests {
         insta::assert_snapshot!(grammar);
         generate_parser_for_grammar(&grammar.to_string()).unwrap();
     }
+
+    #[test]
+    fn with_conflicts() {
+        let m = if let syn::Item::Mod(m) = parse_quote! {
+            #[rust_sitter::grammar("test")]
+            mod grammar {
+                use rust_sitter::Spanned;
+
+                #[rust_sitter::language]
+                pub enum Language {
+                    A(A),
+                    B(B)
+                }
+
+                #[rust_sitter::conflicts(A,B)]
+                pub struct A {
+                    #[rust_sitter::leaf(pattern = r"\d+", transform = |v| v.parse().unwrap())]
+                    numbers: Vec<Spanned<i32>>,
+                }
+
+                pub struct B {
+                    #[rust_sitter::leaf(pattern = r"\d+", transform = |v| v.parse().unwrap())]
+                    numbers: Vec<Spanned<i32>>,
+                }
+
+                #[rust_sitter::extra]
+                struct Whitespace {
+                    #[rust_sitter::leaf(pattern = r"\s")]
+                    _whitespace: (),
+                }
+            }
+        } {
+            m
+        } else {
+            panic!()
+        };
+
+        let grammar = generate_grammar(&m);
+        insta::assert_snapshot!(grammar);
+        generate_parser_for_grammar(&grammar.to_string()).unwrap();
+    }
 }
